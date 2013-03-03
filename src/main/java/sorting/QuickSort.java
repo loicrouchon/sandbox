@@ -1,6 +1,6 @@
 package sorting;
 
-public class QuickSort implements InPlaceSort {
+public class QuickSort implements InPlaceSortAlgorithm {
 
     public void sort(int[] array) {
         quickSort(array, 0, array.length - 1);

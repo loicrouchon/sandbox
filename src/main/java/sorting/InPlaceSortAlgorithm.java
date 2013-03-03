@@ -1,6 +1,6 @@
 package sorting;
 
-public interface InPlaceSort {
+public interface InPlaceSortAlgorithm {
 
     void sort(int[] array);
 

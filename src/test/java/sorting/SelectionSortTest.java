@@ -1,9 +1,9 @@
 package sorting;
 
-public class SelectionSortTest extends InPlaceSortTest {
+public class SelectionSortTest extends InPlaceSortAlgorithmTest {
 
     @Override
-    protected InPlaceSort createSortingAlgorithm() {
+    protected InPlaceSortAlgorithm createSortingAlgorithm() {
         return new SelectionSort();
     }
 

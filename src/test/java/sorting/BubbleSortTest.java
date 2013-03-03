@@ -1,9 +1,9 @@
 package sorting;
 
-public class BubbleSortTest extends InPlaceSortTest {
+public class BubbleSortTest extends InPlaceSortAlgorithmTest {
 
     @Override
-    protected InPlaceSort createSortingAlgorithm() {
+    protected InPlaceSortAlgorithm createSortingAlgorithm() {
         return new BubbleSort();
     }
 

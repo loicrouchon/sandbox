@@ -1,10 +1,10 @@
 package sorting;
 
 
-public class QuickSortTest extends InPlaceSortTest {
+public class QuickSortTest extends InPlaceSortAlgorithmTest {
 
     @Override
-    protected InPlaceSort createSortingAlgorithm() {
+    protected InPlaceSortAlgorithm createSortingAlgorithm() {
         return new QuickSort();
     }
 }

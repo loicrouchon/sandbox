@@ -1,6 +1,6 @@
 package sorting;
 
-public class BubbleSort implements InPlaceSort {
+public class BubbleSort implements InPlaceSortAlgorithm {
 
     public void sort(int[] array) {
         int lastElementIndex = array.length - 1;

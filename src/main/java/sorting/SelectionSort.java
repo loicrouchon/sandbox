@@ -1,6 +1,6 @@
 package sorting;
 
-public class SelectionSort implements InPlaceSort {
+public class SelectionSort implements InPlaceSortAlgorithm {
 
     public void sort(int[] array) {
         int n = array.length;
