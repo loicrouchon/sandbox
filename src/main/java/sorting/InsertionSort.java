@@ -12,13 +12,9 @@ public class InsertionSort implements SortAlgorithm {
         for (int i = 1; i < n; i++) {
             int currentValue = array[i];
             int insertionIndex = i;
-            for (; insertionIndex > 0; insertionIndex--) {
-                if (insertionIndex == 0 || currentValue > result[insertionIndex - 1]) {
-                    break;
-                }
-            }
-            if (insertionIndex < i) {
-                System.arraycopy(result, insertionIndex, result, insertionIndex + 1, i - insertionIndex);
+            while (insertionIndex > 0 && currentValue < result[insertionIndex - 1]) {
+                result[insertionIndex] = result[insertionIndex - 1];
+                insertionIndex--;
             }
             result[insertionIndex] = currentValue;
         }
