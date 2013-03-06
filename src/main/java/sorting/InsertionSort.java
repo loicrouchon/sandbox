@@ -12,7 +12,7 @@ public class InsertionSort implements SortAlgorithm {
         for (int i = 1; i < n; i++) {
             int currentValue = array[i];
             int insertionIndex = i;
-            for (; insertionIndex >= 0; insertionIndex--) {
+            for (; insertionIndex > 0; insertionIndex--) {
                 if (insertionIndex == 0 || currentValue > result[insertionIndex - 1]) {
                     break;
                 }
