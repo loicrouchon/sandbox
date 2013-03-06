@@ -17,8 +17,8 @@ public class InsertionSort implements SortAlgorithm {
                     break;
                 }
             }
-            for (int j = i; j > insertionIndex; j--) {
-                result[j] = result[j - 1];
+            if (insertionIndex < i) {
+                System.arraycopy(result, insertionIndex, result, insertionIndex + 1, i - insertionIndex);
             }
             result[insertionIndex] = currentValue;
         }
