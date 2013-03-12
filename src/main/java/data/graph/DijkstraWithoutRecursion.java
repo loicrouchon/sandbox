@@ -3,9 +3,10 @@ package data.graph;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 
-public class Dijkstra implements DijkstraAlgorithm {
+public class DijkstraWithoutRecursion implements DijkstraAlgorithm {
 
     public List<Node> shortestPath(Set<Node> nodes, Node a, Node b) {
         int nbNodes = nodes.size();
@@ -17,7 +18,13 @@ public class Dijkstra implements DijkstraAlgorithm {
 
         int startIndex = getNodeIndex(a, indexedNodes);
         distances[startIndex] = 0;
-        visit(startIndex, indexedNodes, predecessors, distances);
+
+        Queue<Integer> nodesToVisit = new LinkedList<Integer>();
+        nodesToVisit.add(startIndex);
+
+        while (!nodesToVisit.isEmpty()) {
+            visit(indexedNodes, predecessors, distances, nodesToVisit);
+        }
 
         LinkedList<Node> path = new LinkedList<Node>();
         int i = getNodeIndex(b, indexedNodes);
@@ -32,7 +39,8 @@ public class Dijkstra implements DijkstraAlgorithm {
         return path;
     }
 
-    public void visit(int nodeIndex, Node[] indexedNodes, int[] predecessors, int[] distances) {
+    public void visit(Node[] indexedNodes, int[] predecessors, int[] distances, Queue<Integer> nodesToVisit) {
+        int nodeIndex = nodesToVisit.poll();
         for (Edge edge : indexedNodes[nodeIndex].getEdges()) {
             Node child = edge.getTo();
             int childIndex = getNodeIndex(child, indexedNodes);
@@ -41,7 +49,9 @@ public class Dijkstra implements DijkstraAlgorithm {
             if (distances[nodeIndex] + edge.getWeight() < distances[childIndex]) {
                 distances[childIndex] = distanceToChild;
                 predecessors[childIndex] = nodeIndex;
-                visit(childIndex, indexedNodes, predecessors, distances);
+                if (!nodesToVisit.contains(child)) {
+                    nodesToVisit.add(childIndex);
+                }
             }
         }
     }
