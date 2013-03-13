@@ -103,6 +103,7 @@ public class AStarTest {
         assertEquals(expected, shortestPath);
     }
 
+    @Test
     public void testComplexExample2() {
         Node a = new Node(1, 10, 15);
         Node b = new Node(2, 12, 16);
