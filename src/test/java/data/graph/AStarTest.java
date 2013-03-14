@@ -83,7 +83,7 @@ public class AStarTest {
         Node e = new Node(5, 18, 16);
         Node f = new Node(6, 20, 20);
         Node g = new Node(7, 14, 19);
-        Node h = new Node(6, 18, 19);
+        Node h = new Node(8, 18, 19);
         Node i = new Node(9, 19, 17);
         Node j = new Node(10, 20, 18);
         connect(a, b);
@@ -112,7 +112,7 @@ public class AStarTest {
         Node e = new Node(5, 18, 16);
         Node f = new Node(6, 20, 20);
         Node g = new Node(7, 14, 19);
-        Node h = new Node(6, 18, 19);
+        Node h = new Node(8, 18, 19);
         Node i = new Node(9, 19, 17);
         Node j = new Node(10, 20, 18);
         connect(a, b);

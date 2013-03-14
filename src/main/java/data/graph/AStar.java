@@ -55,13 +55,18 @@ public class AStar {
         public int getWeight() {
             return weight;
         }
+
+        @Override
+        public String toString() {
+            return "{" + to.key + ":" + weight + "}";
+        }
     }
 
-    static class EstimatedRemainingDistance {
+    static class EstimatedDistance {
         int nodeIndex;
         int distance;
 
-        EstimatedRemainingDistance(int nodeIndex, int distance) {
+        EstimatedDistance(int nodeIndex, int distance) {
             this.nodeIndex = nodeIndex;
             this.distance = distance;
         }
@@ -73,11 +78,16 @@ public class AStar {
 
         @Override
         public boolean equals(Object o) {
-            return o instanceof EstimatedRemainingDistance && ((EstimatedRemainingDistance) o).nodeIndex == nodeIndex;
+            return o instanceof EstimatedDistance && ((EstimatedDistance) o).nodeIndex == nodeIndex;
         }
 
-        static Comparator<EstimatedRemainingDistance> comparator = new Comparator<EstimatedRemainingDistance>() {
-            public int compare(EstimatedRemainingDistance a, EstimatedRemainingDistance b) {
+        @Override
+        public String toString() {
+            return "{" + nodeIndex + ":" + distance + "}";
+        }
+
+        static Comparator<EstimatedDistance> comparator = new Comparator<EstimatedDistance>() {
+            public int compare(EstimatedDistance a, EstimatedDistance b) {
                 return a.distance < b.distance ? -1 : (a.distance == b.distance ? 0 : 1);
             }
         };
@@ -88,29 +98,28 @@ public class AStar {
         Arrays.fill(predecessors, -1);
         int[] distances = new int[nodes.length];
         Arrays.fill(distances, Integer.MAX_VALUE);
-        int[] estimatedRemainingDistances = new int[nodes.length];
-        Arrays.fill(estimatedRemainingDistances, Integer.MAX_VALUE);
         predecessors[startIndex] = startIndex;
         distances[startIndex] = 0;
-        estimatedRemainingDistances[startIndex] = nodes[startIndex].estimatedDistance(nodes[endIndex]);
-        PriorityQueue<EstimatedRemainingDistance> nodesToVisit = new PriorityQueue<EstimatedRemainingDistance>(
-                nodes.length, EstimatedRemainingDistance.comparator);
-        nodesToVisit.add(new EstimatedRemainingDistance(startIndex, estimatedRemainingDistances[startIndex]));
+        PriorityQueue<EstimatedDistance> nodesToVisit = new PriorityQueue<EstimatedDistance>(nodes.length,
+                EstimatedDistance.comparator);
+        if (startIndex != endIndex) {
+            nodesToVisit.add(new EstimatedDistance(startIndex, nodes[startIndex].estimatedDistance(nodes[endIndex])));
+        }
         while (!nodesToVisit.isEmpty()) {
             int nodeIndex = nodesToVisit.poll().nodeIndex;
-            if (nodeIndex == endIndex) {
-                break;
-            }
             for (Edge edge : nodes[nodeIndex].getEdges()) {
                 Node child = edge.getTo();
                 int childIndex = getNodeIndex(child, nodes);
                 int distance = distances[nodeIndex] + edge.getWeight();
                 if (distance < distances[childIndex]) {
-                    distances[childIndex] = distances[nodeIndex] + edge.getWeight();
+                    distances[childIndex] = distance;
                     predecessors[childIndex] = nodeIndex;
-                    estimatedRemainingDistances[childIndex] = child.estimatedDistance(nodes[endIndex]);
-                    EstimatedRemainingDistance erd = new EstimatedRemainingDistance(childIndex,
-                            estimatedRemainingDistances[childIndex]);
+                    if (childIndex == endIndex) {
+                        nodesToVisit.clear();
+                        break;
+                    }
+                    int estimatedDistance = distance + child.estimatedDistance(nodes[endIndex]);
+                    EstimatedDistance erd = new EstimatedDistance(childIndex, estimatedDistance);
                     if (!nodesToVisit.contains(erd)) {
                         nodesToVisit.add(erd);
                     }
