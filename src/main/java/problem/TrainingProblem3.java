@@ -2,47 +2,33 @@ package problem;
 
 public class TrainingProblem3 {
 
-    public int[][] maxSubMatrix(int[][] matrix) {
-        int height = matrix.length;
-        int width = height > 0 ? matrix[0].length : 0;
-        int maxSubMatrixLeftIndex = 0;
-        int maxSubMatrixRightIndex = 0;
-        int maxSubMatrixLowerIndex = 0;
-        int maxSubMatrixUpperIndex = 0;
-        int maxSubMatrixSum = Integer.MIN_VALUE;
-        for (int leftIndex = 0; leftIndex < width; leftIndex++) {
-            for (int rightIndex = leftIndex; rightIndex < width; rightIndex++) {
-                for (int lowerIndex = 0; lowerIndex < height; lowerIndex++) {
-                    for (int upperIndex = lowerIndex; upperIndex < height; upperIndex++) {
-                        int sum = computeSum(matrix, leftIndex, rightIndex, lowerIndex, upperIndex);
-                        if (sum > maxSubMatrixSum) {
-                            maxSubMatrixSum = sum;
-                            maxSubMatrixLeftIndex = leftIndex;
-                            maxSubMatrixRightIndex = rightIndex;
-                            maxSubMatrixLowerIndex = lowerIndex;
-                            maxSubMatrixUpperIndex = upperIndex;
-                        }
-                    }
-                }
+    /*
+     * There is an array A[N] of N numbers.
+     * 
+     * You have to compose an array Output[N] such that Output[i] will be equal
+     * to multiplication of all the elements of A[N] except A[i].
+     * 
+     * For example Output[0] will be multiplication of A[1] to A[N-1] and
+     * Output[1] will be multiplication of A[0] and from A[2] to A[N-1].
+     * 
+     * Solve it without division operator and in O(n).
+     */
+    public int[] multiply(int[] array) {
+        int n = array.length;
+        int[] results = new int[n];
+        if (n > 0) {
+            int[] previousProducts = new int[n];
+            int[] nextProducts = new int[n];
+            previousProducts[0] = 1;
+            nextProducts[n - 1] = 1;
+            for (int i = 1; i < n; i++) {
+                previousProducts[i] = previousProducts[i - 1] * array[i - 1];
+                nextProducts[n - (i + 1)] = nextProducts[n - i] * array[n - i];
+            }
+            for (int i = 0; i < n; i++) {
+                results[i] = previousProducts[i] * nextProducts[i];
             }
         }
-        int[][] maxSubMatrix = new int[maxSubMatrixUpperIndex - maxSubMatrixLowerIndex + 1][maxSubMatrixRightIndex
-                - maxSubMatrixLeftIndex + 1];
-        for (int x = maxSubMatrixLeftIndex; x <= maxSubMatrixRightIndex; x++) {
-            for (int y = maxSubMatrixLowerIndex; y <= maxSubMatrixUpperIndex; y++) {
-                maxSubMatrix[y - maxSubMatrixLowerIndex][x - maxSubMatrixLeftIndex] = matrix[y][x];
-            }
-        }
-        return maxSubMatrix;
-    }
-
-    private int computeSum(int[][] matrix, int leftIndex, int rightIndex, int lowerIndex, int upperIndex) {
-        int sum = 0;
-        for (int x = leftIndex; x <= rightIndex; x++) {
-            for (int y = lowerIndex; y <= upperIndex; y++) {
-                sum += matrix[y][x];
-            }
-        }
-        return sum;
+        return results;
     }
 }
