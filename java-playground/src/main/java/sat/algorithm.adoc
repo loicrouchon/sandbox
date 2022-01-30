@@ -1,0 +1,253 @@
+= Boolean expression solver
+Doc Writer <loic.rouchon@gmail.com>
+v0.1, 2020-05-31
+
+:stem: latexmath
+
+== Representation of a Boolean expression
+
+A Boolean expression consist in Boolean variables combined with Boolean operators.
+We will consider for the rest of this document the three basic Boolean operators:
+
+* The `NOT` unary operator.
+* The `AND` and `OR` binary operators
+
+NOTE: All other operators than those three basic ones can be derived from them and will therefore not be included in this document.
+
+== Expression as a tree
+
+In order to represent a Boolean expression, we will use an expression tree.
+This tree is composed of the following elements:
+
+* *Boolean variables*: leaves of the tree.
+* *`NOT` unary expression operator*: A node with exactly one child.
+* *`AND` / `OR` binary expression operators*: A node with exactly two children.
+
+NOTE: this tree is not a binary tree as `NOT` operator has a single child, nor it is balanced.
+
+According to this definition, the following expression can be expressed with the following trees:
+
+.Variable: `v1`
+```
+v1
+```
+
+.Not expression: `NOT a`
+```
+NOT
+ |
+ a
+```
+
+.And expression: `a AND b`
+```
+   AND
+  /   \
+ a     b
+```
+
+.Or expression: `a OR b`
+```
+   OR
+  /  \
+ a    b
+```
+
+.Complex expression: `a OR NOT (b AND NOT c)`
+```
+   OR
+  /  \
+ a   NOT
+      |
+     AND
+    /   \
+   b    NOT
+         |
+         c
+```
+
+== Tree characteristics
+
+A Boolean expression is characterized by the following measures:
+* `v` the number of distinct variables used in the tree.
+* `l` the number of leaves of the tree.
+* `n` the number of nodes of the tree, including leaves.
+* `h` the height of the tree.
+* `t` the number of `NOT` nodes.
+* `a` the number of `AND` nodes.
+* `o` the number of `OR` nodes.
+* `b` the number of binary operators nodes.
+
+Those values are linked through the following inequalities thanks to tree characteristics:
+
+.The number of leaves (variables) is greater or equal to the number of distinct variables.
+* stem:[l >= v]
+
+.The height of the tree is greater or equal to the number of leaves.
+* stem:[h >= l]
+
+.The number of nodes of the tree is:
+* stem:[b = a + o]
+* stem:[n = a + o + t + l = b + t + l]
+
+.The number of nodes of the tree is greater or equal than the height of the tree.
+* stem:[n = b + t + l >= h]
+
+This can be summarised by the following inequality:
+
+* stem:[n = b + t + l >= h >= l >= v]
+
+== Normalisation of an expression graph
+
+In order to simplify graph analysis, the graph will be normalised.
+This normalisation operation will consist in pushing the `NOT` operators to the variables using the _De Morgan's laws_ below:
+
+.De Morgan's laws
+* `NOT (a OR b) = NOT a AND NOT b`
+* `NOT (a AND b) = NOT a OR NOT b`
+
+Additionally, we will also eliminate double negations using the formula:
+* `NOT NOT a = a`
+
+After normalisation, and as `NOT` expressions were pushed to the leaves and eliminated if duplicated, the following characteristics can be refined regarding our tree.
+
+.There are at most `l` `NOT` expressions, up to one per leave.
+* stem:[2 l >= l + t]
+
+Exception to the leaves and their possible `NOT` immediate parent, all other expressions in the tree are binary operators `AND` or `OR`.
+This part of the tree can therefore be considered as a binary tree.
+
+As the upper part of the tree is a binary tree, the maximum number of binary operators happens in the context of a binary balanced tree.
+
+.Maximum number of binary nodes
+* stem:[2 ^ (h - 1) > b]
+
+.Minimum number of binary nodes (accounting for leaves and their potential negation)
+* stem:[b >= h - 2]
+
+
+* stem:[2 ^ (h - 1) + 2 l > b + 2 l >= b + l + t >= h - 2]
+
+* stem:[2 ^ (h - 1) >= l >= h - 1]
+
+=== Benefits of expression normalisation
+
+Thanks of this normalisation of the graph we can know just by looking at the leaves, and their direct parent what are all the expected variables states of the graph for every path to be evaluated to `true` or `false`.
+
+Let's take a look at the example from above:
+
+.Before normalisation: `a OR NOT (b AND NOT c)`
+```
+   OR
+  /  \
+ a   NOT
+      |
+     AND
+    /   \
+   b    NOT
+         |
+         c
+```
+After normalisation, we have the following graph:
+
+.After normalisation: `a OR (NOT b OR c)`
+```
+   OR
+  /  \
+ a   OR
+    /   \
+   NOT  c
+    |
+    b
+```
+
+What this normalised version is telling us is that for all paths from the root to be `true`, you need to have:
+
+* `a`
+* `NOT b`
+* `c`
+
+This comes free of any expression analysis of the tree at an algorithmic cost of stem:[O(l + t) <= O(2 l)].
+
+Now, this is result is interesting, but what is even more interesting is when there are conflicting branches.
+
+.Conflicting leaves definition of a resolvable tree: `b OR (NOT b OR c)`
+```
+   OR
+  /  \
+ a   OR
+    /  \
+   NOT  b
+    |
+    b
+```
+For all path from the root to be `true`, you need to have:
+
+* `a`
+* `NOT b`
+* `b`
+
+.Conflicting leaves definition of a unresolvable tree: `a OR (NOT b AND b)`
+```
+   OR
+  /  \
+ a   AND
+    /   \
+   NOT  b
+    |
+    b
+```
+For all path from the root to be `true`, you need to have:
+
+* `a`
+* `NOT b`
+* `b`
+
+== Bottom up constraint solving
+
+When going from the leaves and rebuilding the tree trying to find the solutions set, we apply the following behaviour.
+
+* A leave creates a set of a single constraint with a single variable `v`. `v` being the variable represented by the leave.
+* A `NOT` operator as a parent for a leave transform that set of constraints into a set of a single element which constraints are `!v`.
+* A `OR` operator does the union of the sets of both its children and filter out supersets.
+* A `AND` operator does the cartesian product of constraints merges between sets from its left child with its right child.
+
+Let's take a closer look at that `AND` operator merge.
+
+Let's consider a `AND` operator with the following constraints for its children:
+
+* left: stem:[\{\{v1, v2, !v3\}, \{v1, v4\}\}]
+* right: stem:[\{\{v2, v3\}, \{v1, v2\}\}]
+
+This will lead to a set containing the following merges:
+
+* stem:[merge(\{v1, v2, !v3\}, \{v2, v3\})] => stem:[\emptyset] as conflict on `v3`
+* stem:[merge(\{v1, v2, !v3\}, \{v1, v2\})] => stem:[\{v1, v2, !v3\}]
+* stem:[merge(\{v1, v4\}, \{v2, v3\})] => stem:[\{v1, v2, v3, v4\}]
+* stem:[merge(\{v1, v4\}, \{v1, v2\})] => stem:[\{v1, v2, v4\}]
+
+As a result of the cartesian product merge operation, we have now four constraints:
+
+stem:[\{\emptyset, \{v1, v2, !v3\}, \{v1, v2, v3, v4\}, \{v1, v2, v4\}\}]
+
+The filtering part will now eliminate two kind of constraints:
+
+* Empty constraints: stem:[\emptyset]
+* Super sets of already defined constraints. In this example we have : stem:[\{v1, v2, v4\} \subset \{v1, v2, v3, v4\}]. Therefore, we can filter out stem:[\{v1, v2, v3, v4\}] from our results as the constraint on `v4` is not necessary to make this subtree evaluate to `true`.
+
+After the filtering step we now have the following results:
+stem:[\{\{v1, v2, !v3\}, \{v1, v2, v4\}\}]
+
+NOTE: the filtering operations ensures that we do eliminate enough duplicates not to have a complexity explosion while walking up the tree.
+
+NOTE: Not having normalised the expression would have led to potential `NOT` being up the tree which would have caused issues in determining the `OR` / `AND` merge behaviour.
+
+.variation in the number of constraints after a merge.
+[NOTE]
+====
+The `OR` merge operation aggregates through union stem:[\cup] two sets of `n1` and `n2` constraints and then filter out supersets.
+The resulting size of the merge is defined as follow: stem:[n1 + n2 >= n >= min(n1, n2)].
+
+The `AND` merge operation aggregates two sets of `n1` and `n2` constraints by cartesian product of constraints union, then filtering out empty constraints and supersets.
+The resulting size of the merge is defined as follow: stem:[n1 * n2 >= n >= 0].
+====
