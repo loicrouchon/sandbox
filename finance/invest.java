@@ -6,10 +6,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.function.IntFunction;
+import java.util.*;
+import java.util.function.BiFunction;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtils;
 import org.jfree.chart.JFreeChart;
@@ -30,9 +28,8 @@ class invest {
         List<Fund> funds = new ArrayList<>();
         for (double depositFees : new double[]{4.5d}) {
             for (double adminFees : new double[]{0.28d}) {
-                for (double averageYearlyPerformance : new double[]{5d}) {
-                    for (long seed = 1L; seed < 20L; seed++) {
-//                    for (long seed : new long[]{1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L}) {
+                for (double averageYearlyPerformance : new double[]{7d}) {
+                    for (long seed = 0L; seed < 5000L; seed++) {
                         Conditions conditions = new Conditions(period, initialSharePrice,
                                 250d, Percent.ofPercentage(2d),
                                 Percent.ofPercentage(depositFees), Percent.ofPercentage(adminFees),
@@ -40,76 +37,126 @@ class invest {
                                 seed);
                         Fund fund = new Fund(conditions);
                         funds.add(fund);
-                        for (int i = 1; i <= conditions.period.duration(); i++) {
+                        for (int i = 0; i <= conditions.period.duration(); i++) {
                             fund.invest(i);
                         }
                     }
                 }
             }
         }
-        monthToMonthRelativePerformanceGraph(funds);
-        cumlulatedRelativePerformanceGraph(funds);
-        cumulatedAbsolutePerformanceGraph(funds);
-        feesGraph(funds);
-//        averageFund(period, funds);
+
+        List<Fund> fundsToDisplay = new ArrayList<>();
+        funds.sort(Comparator.comparing(fund -> fund.reports.get(fund.reports.size() - 1).gains().percentage()));
+        for (int percentile : new int[]{5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95}) {
+            int percentileIndex = (int) Math.min(funds.size() - 1, (double) percentile / 100d * funds.size());
+            Fund fund = funds.get(percentileIndex);
+            fund.title("percentile-" + percentile);
+            fundsToDisplay.add(fund);
+        }
+        monthToMonthRelativePerformanceGraph(fundsToDisplay);
+        cumlulatedRelativePerformanceGraph(fundsToDisplay);
+        cumulatedAbsolutePerformanceGraph(fundsToDisplay);
+        feesGraph(fundsToDisplay);
+        //        averageFund(period, funds);
     }
 
     private void averageFund(Period period, List<Fund> funds) {
         List<List<MonthlyReport>> reports = funds.stream().map(fund -> fund.reports).toList();
-        List<MonthlyReport> averageReports = new ArrayList<>();
+        List<StatsReport> averageReports = new ArrayList<>();
         for (int i = 0; i < period.duration(); i++) {
             int month = i + 1;
-            double invested = 0d;
-            double shares = 0d;
-            double sharePrice = 0d;
-            double performance = 0d;
-            double depositFee = 0d;
-            double adminFees = 0d;
+            Statistics invested = new Statistics();
+            Statistics shares = new Statistics();
+            Statistics sharePrice = new Statistics();
+            Statistics performance = new Statistics();
+            Statistics depositFee = new Statistics();
+            Statistics adminFees = new Statistics();
             for (List<MonthlyReport> report : reports) {
                 MonthlyReport monthlyReport = report.get(i);
-                invested += monthlyReport.invested();
-                shares += monthlyReport.shares();
-                sharePrice += monthlyReport.sharePrice().price();
-                performance += monthlyReport.performance().percentage();
-                depositFee += monthlyReport.depositFee();
-                adminFees += monthlyReport.adminFees();
+                invested.add(monthlyReport.invested());
+                shares.add(monthlyReport.shares());
+                sharePrice.add(monthlyReport.sharePrice());
+                performance.add(monthlyReport.performance().percentage());
+                depositFee.add(monthlyReport.depositFee());
+                adminFees.add(monthlyReport.adminFees());
             }
-            invested /= reports.size();
-            shares /= reports.size();
-            sharePrice /= reports.size();
-            performance /= reports.size();
-            depositFee /= reports.size();
-            adminFees /= reports.size();
-            averageReports.add(new MonthlyReport(month, invested, shares, new SharePrice(sharePrice),
-                    new Percent(performance), depositFee, adminFees));
+            averageReports.add(new StatsReport(month, invested, shares, sharePrice,
+                    performance, depositFee, adminFees));
         }
-        Fund fund = new Fund(new Conditions(period, new SharePrice(100d),
-                250d, Percent.ofPercentage(2d),
-                Percent.ofPercentage(0d), Percent.ofPercentage(0d),
-                Percent.ofPercentage(0d), Percent.ofPercentage(5d),
-                1L));
-        fund.reports.addAll(averageReports);
-        List<Fund> averageFunds = List.of(fund);
+        List<Fund> averageFunds = List.of(
+                statsFund(period, averageReports, 0),
+                statsFund(period, averageReports, 10),
+                statsFund(period, averageReports, 20),
+                statsFund(period, averageReports, 30),
+                statsFund(period, averageReports, 40),
+                statsFund(period, averageReports, 50),
+                statsFund(period, averageReports, 60),
+                statsFund(period, averageReports, 70),
+                statsFund(period, averageReports, 80),
+                statsFund(period, averageReports, 90)
+        );
         monthToMonthRelativePerformanceGraph(averageFunds);
         cumlulatedRelativePerformanceGraph(averageFunds);
         cumulatedAbsolutePerformanceGraph(averageFunds);
         feesGraph(averageFunds);
     }
 
+    private static Fund statsFund(Period period, List<StatsReport> statsReports, int percentile) {
+        Fund fund = new Fund(new Conditions(period, new SharePrice(100d),
+                250d, Percent.ofPercentage(percentile),
+                Percent.ofPercentage(percentile), Percent.ofPercentage(percentile),
+                Percent.ofPercentage(percentile), Percent.ofPercentage(percentile),
+                1L));
+        statsReports.stream().map(stats -> new MonthlyReport(stats.month, stats.invested().percentile(percentile),
+                        stats.shares().percentile(percentile), stats.sharePrice().percentile(percentile),
+                        new Percent(stats.performance().percentile(percentile)),
+                        stats.depositFee().percentile(percentile), stats.adminFees().percentile(percentile)))
+                .forEach(fund.reports::add);
+        return fund;
+    }
+
+    record StatsReport(int month, Statistics invested, Statistics shares, Statistics sharePrice,
+                       Statistics performance, Statistics depositFee, Statistics adminFees) {
+
+    }
+
+    static class Statistics {
+
+        private final List<Double> values = new ArrayList<>();
+        private boolean sorted;
+
+        public void add(double value) {
+            values.add(value);
+            sorted = false;
+        }
+
+        public double average() {
+            return values.stream().mapToDouble(Double::doubleValue).average().orElse(0d);
+        }
+
+        public double percentile(int percentile) {
+            if (!sorted) {
+                Collections.sort(values);
+                sorted = true;
+            }
+            return values.get((int) Math.min((double) values.size() - 1, (double) percentile / 100d * values.size()));
+        }
+    }
+
     private static void monthToMonthRelativePerformanceGraph(List<Fund> funds) {
         XYSeriesCollection dataset = new XYSeriesCollection();
         for (Fund fund : funds) {
-            XYSeries sharePerformanceSeries = new XYSeries("Share Performance " + fund);
-            XYSeries averagedPerformanceSeries = new XYSeries("Averaged Performance " + fund);
+            XYSeries sharePerformanceSeries = new XYSeries("Share Performance " + fund.title());
+            XYSeries averagedPerformanceSeries = new XYSeries("Averaged Performance " + fund.title());
             double averagePerformance = 0d;
-            int month = 1;
+            int count = 1;
             for (MonthlyReport report : fund.reports) {
                 double performance = report.performance().percentage() * 100;
                 averagePerformance += performance;
                 sharePerformanceSeries.add(report.month(), performance);
                 averagedPerformanceSeries.add(
-                        report.month(), averagePerformance / month);
-                month++;
+                        report.month(), averagePerformance / count);
+                count++;
             }
             dataset.addSeries(sharePerformanceSeries);
             dataset.addSeries(averagedPerformanceSeries);
@@ -120,15 +167,15 @@ class invest {
     private static void cumlulatedRelativePerformanceGraph(List<Fund> funds) {
         XYSeriesCollection dataset = new XYSeriesCollection();
         for (Fund fund : funds) {
-            XYSeries gainsSeries = new XYSeries("Gains " + fund);
-            XYSeries sharePriceSeries = new XYSeries("Share Price " + fund);
+            XYSeries gainsSeries = new XYSeries("Gains " + fund.title());
+            XYSeries sharePriceSeries = new XYSeries("Share Price " + fund.title());
             for (MonthlyReport report : fund.reports) {
                 gainsSeries.add(report.month(), report.gains().percentage() * 100d);
-                sharePriceSeries.add(
-                        report.month(), report.sharePrice().price() / fund.conditions.initialSharePrice.price() * 100);
+                //                sharePriceSeries.add(
+                //                        report.month(), report.sharePrice() / fund.conditions.sharePrices.get(0) * 100);
             }
             dataset.addSeries(gainsSeries);
-            dataset.addSeries(sharePriceSeries);
+            //            dataset.addSeries(sharePriceSeries);
         }
         chart(dataset, "Relative Performance", "%", "relative-performance");
     }
@@ -136,11 +183,11 @@ class invest {
     private static void cumulatedAbsolutePerformanceGraph(List<Fund> funds) {
         XYSeriesCollection dataset = new XYSeriesCollection();
         for (Fund fund : funds) {
-            XYSeries invested = new XYSeries("Invested " + fund);
-            XYSeries valueSeries = new XYSeries("Value " + fund);
+            XYSeries invested = new XYSeries("Invested " + fund.title());
+            XYSeries valueSeries = new XYSeries("Value " + fund.title());
             for (MonthlyReport report : fund.reports) {
                 invested.add(report.month(), report.invested());
-                valueSeries.add(report.month(), report.shares * report.sharePrice().price());
+                valueSeries.add(report.month(), report.shares * report.sharePrice());
             }
             dataset.addSeries(invested);
             dataset.addSeries(valueSeries);
@@ -151,9 +198,9 @@ class invest {
     private void feesGraph(List<Fund> funds) {
         XYSeriesCollection dataset = new XYSeriesCollection();
         for (Fund fund : funds) {
-            XYSeries depositFeesSeries = new XYSeries("Deposit Fees " + fund);
-            XYSeries adminFeesSeries = new XYSeries("Admin Fees " + fund);
-            XYSeries allFeesSeries = new XYSeries("All Fees " + fund);
+            XYSeries depositFeesSeries = new XYSeries("Deposit Fees " + fund.title());
+            XYSeries adminFeesSeries = new XYSeries("Admin Fees " + fund.title());
+            XYSeries allFeesSeries = new XYSeries("All Fees " + fund.title());
             double depositFees = 0d;
             double adminFees = 0d;
             for (MonthlyReport report : fund.reports) {
@@ -198,7 +245,7 @@ class invest {
 
         private final Period period;
         private final Series<Double> investments;
-        private final SharePrice initialSharePrice;
+        private final Series<Double> sharePrices;
         private final Percent investmentInflationCorrection;
         private final Percent depositFees;
         private final Percent adminFees;
@@ -214,7 +261,6 @@ class invest {
                 Percent depositFees, Percent adminFees,
                 Percent averageYearlyPerformance, Percent standardDeviation, long seed) {
             this.period = period;
-            this.initialSharePrice = initialSharePrice;
             this.investmentInflationCorrection = investmentInflationCorrection;
             this.depositFees = depositFees;
             this.adminFees = adminFees;
@@ -222,14 +268,17 @@ class invest {
             this.standardDeviation = standardDeviation;
             this.seed = seed;
             this.random = new Random(seed);
-            investments = period.series(monthIndex -> initialInvestment * Math.pow(
+            investments = period.series(0d, (monthIndex, previousValue) -> initialInvestment * Math.pow(
                     1 + this.investmentInflationCorrection.percentage(),
                     period.yearOfMonth(monthIndex)));
             averageMonthlyPerformance = new Percent(Math.pow(1 + averageYearlyPerformance.percentage(), 1d / 12d) - 1);
-            performance = period.series(monthIndex -> {
+            performance = period.series(Percent.ofPercentage(0d), (monthIndex, previousValue) -> {
                 double mean = averageMonthlyPerformance.percentage();
                 return new Percent(mean + this.standardDeviation.percentage() * random.nextGaussian());
             });
+            sharePrices = period.series(
+                    initialSharePrice.price(),
+                    (monthIndex, previousValue) -> previousValue * (1d + performance.get(monthIndex).percentage()));
 
         }
     }
@@ -239,27 +288,31 @@ class invest {
         private final Conditions conditions;
         private int month = 0;
         private double shares = 0d;
-        private SharePrice sharePrice;
-
         private double invested = 0d;
-
         private final List<MonthlyReport> reports = new ArrayList<>();
+        private String title;
 
         public Fund(Conditions conditions) {
             this.conditions = conditions;
-            sharePrice = conditions.initialSharePrice;
+        }
+
+        public void title(String title) {
+            this.title = title;
+        }
+
+        public String title() {
+            return title == null ? toString() : title;
         }
 
         public void invest(int periodIndex) {
             month = periodIndex;
             Percent performance = conditions.performance.get(periodIndex);
-            double sharePriceIncrease = performance.of(sharePrice.price);
-            sharePrice = new SharePrice(sharePrice.price + sharePriceIncrease);
+            double sharePrice = conditions.sharePrices.get(periodIndex);
             double investment = conditions.investments.get(periodIndex);
             invested += investment;
             double depositFee = conditions.depositFees.of(investment);
             double valueInvested = investment - depositFee;
-            double sharedBought = valueInvested / sharePrice.price();
+            double sharedBought = valueInvested / sharePrice;
             shares += sharedBought;
             double adminFeesInShares;
             if (month % 12 == 0 && month > 0) {
@@ -268,10 +321,10 @@ class invest {
                 adminFeesInShares = 0d;
             }
             shares -= adminFeesInShares;
-            reports.add(report(performance, depositFee, adminFeesInShares * sharePrice.price()));
+            reports.add(report(performance, sharePrice, depositFee, adminFeesInShares * sharePrice));
         }
 
-        public MonthlyReport report(Percent performance, double depositFee,
+        public MonthlyReport report(Percent performance, double sharePrice, double depositFee,
                 double adminFees) {
             return new MonthlyReport(
                     month, invested, shares, sharePrice, performance, depositFee, adminFees);
@@ -287,11 +340,11 @@ class invest {
         }
     }
 
-    public record MonthlyReport(int month, double invested, double shares, SharePrice sharePrice,
+    public record MonthlyReport(int month, double invested, double shares, double sharePrice,
                                 Percent performance, double depositFee, double adminFees) {
 
         public Percent gains() {
-            return new Percent(shares * sharePrice.price() / invested);
+            return new Percent(shares * sharePrice / invested);
         }
 
     }
@@ -327,10 +380,11 @@ class invest {
             return monthIndex / 12;
         }
 
-        public <T> Series<T> series(IntFunction<T> generator) {
+        public <T> Series<T> series(T initialValue, BiFunction<Integer, T, T> generator) {
             List<T> data = new ArrayList<>(duration());
-            for (int i = 0; i < duration(); i++) {
-                data.add(generator.apply(i));
+            data.add(initialValue);
+            for (int i = 1; i <= duration(); i++) {
+                data.add(generator.apply(i, data.get(i - 1)));
             }
             return new Series<>(data);
         }
@@ -339,11 +393,11 @@ class invest {
     record Series<T>(List<T> data) {
 
         public T get(int index) {
-            return data.get(index - 1);
+            return data.get(index);
         }
 
         public void set(int index, T value) {
-            data.set(index - 1, value);
+            data.set(index, value);
         }
     }
 }
