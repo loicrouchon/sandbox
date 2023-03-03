@@ -26,7 +26,7 @@ class invest {
         Period period = new Period(10);
         SharePrice initialSharePrice = new SharePrice(100d);
         List<Fund> funds = new ArrayList<>();
-        for (double depositFees : new double[]{4.5d}) {
+        for (double depositFees : new double[]{3.6d}) {
             for (double adminFees : new double[]{0.28d}) {
                 for (double averageYearlyPerformance : new double[]{7d}) {
                     for (long seed = 0L; seed < 5000L; seed++) {
@@ -34,7 +34,7 @@ class invest {
                                 250d, Percent.ofPercentage(2d),
                                 Percent.ofPercentage(depositFees), Percent.ofPercentage(adminFees),
                                 Percent.ofPercentage(averageYearlyPerformance), Percent.ofPercentage(5d),
-                                seed);
+                                seed, Percent.ofPercentage(1d));
                         Fund fund = new Fund(conditions);
                         funds.add(fund);
                         for (int i = 0; i <= conditions.period.duration(); i++) {
@@ -45,6 +45,7 @@ class invest {
             }
         }
 
+        //        List<Fund> fundsToDisplay = funds;
         List<Fund> fundsToDisplay = new ArrayList<>();
         funds.sort(Comparator.comparing(fund -> fund.reports.get(fund.reports.size() - 1).gains().percentage()));
         for (int percentile : new int[]{5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95}) {
@@ -106,7 +107,7 @@ class invest {
                 250d, Percent.ofPercentage(percentile),
                 Percent.ofPercentage(percentile), Percent.ofPercentage(percentile),
                 Percent.ofPercentage(percentile), Percent.ofPercentage(percentile),
-                1L));
+                1L, Percent.ofPercentage(0d)));
         statsReports.stream().map(stats -> new MonthlyReport(stats.month, stats.invested().percentile(percentile),
                         stats.shares().percentile(percentile), stats.sharePrice().percentile(percentile),
                         new Percent(stats.performance().percentile(percentile)),
@@ -154,8 +155,7 @@ class invest {
                 double performance = report.performance().percentage() * 100;
                 averagePerformance += performance;
                 sharePerformanceSeries.add(report.month(), performance);
-                averagedPerformanceSeries.add(
-                        report.month(), averagePerformance / count);
+                averagedPerformanceSeries.add(report.month(), averagePerformance / count);
                 count++;
             }
             dataset.addSeries(sharePerformanceSeries);
@@ -171,8 +171,8 @@ class invest {
             XYSeries sharePriceSeries = new XYSeries("Share Price " + fund.title());
             for (MonthlyReport report : fund.reports) {
                 gainsSeries.add(report.month(), report.gains().percentage() * 100d);
-                //                sharePriceSeries.add(
-                //                        report.month(), report.sharePrice() / fund.conditions.sharePrices.get(0) * 100);
+                sharePriceSeries.add(
+                        report.month(), report.sharePrice() / fund.conditions.sharePrices.get(0) * 100);
             }
             dataset.addSeries(gainsSeries);
             //            dataset.addSeries(sharePriceSeries);
@@ -254,12 +254,14 @@ class invest {
         private final Percent standardDeviation;
         private final long seed;
         private final Random random;
+        private final Percent reinvestedDividends;
         private final Series<Percent> performance;
 
         public Conditions(Period period, SharePrice initialSharePrice,
                 double initialInvestment, Percent investmentInflationCorrection,
                 Percent depositFees, Percent adminFees,
-                Percent averageYearlyPerformance, Percent standardDeviation, long seed) {
+                Percent averageYearlyPerformance, Percent standardDeviation, long seed,
+                Percent reinvestedDividends) {
             this.period = period;
             this.investmentInflationCorrection = investmentInflationCorrection;
             this.depositFees = depositFees;
@@ -268,17 +270,33 @@ class invest {
             this.standardDeviation = standardDeviation;
             this.seed = seed;
             this.random = new Random(seed);
+            this.reinvestedDividends = reinvestedDividends;
+            double targetSharePrice =
+                    initialSharePrice.price() * Math.pow(1 + averageYearlyPerformance.percentage(), period.years());
             investments = period.series(0d, (monthIndex, previousValue) -> initialInvestment * Math.pow(
                     1 + this.investmentInflationCorrection.percentage(),
                     period.yearOfMonth(monthIndex)));
             averageMonthlyPerformance = new Percent(Math.pow(1 + averageYearlyPerformance.percentage(), 1d / 12d) - 1);
-            performance = period.series(Percent.ofPercentage(0d), (monthIndex, previousValue) -> {
-                double mean = averageMonthlyPerformance.percentage();
-                return new Percent(mean + this.standardDeviation.percentage() * random.nextGaussian());
-            });
+            //            performance = period.series(Percent.ofPercentage(0d), (monthIndex, previousValue) -> {
+            //                double mean = averageMonthlyPerformance.percentage();
+            //                return new Percent(mean + this.standardDeviation.percentage() * random.nextGaussian());
+            //            });
             sharePrices = period.series(
                     initialSharePrice.price(),
-                    (monthIndex, previousValue) -> previousValue * (1d + performance.get(monthIndex).percentage()));
+                    (monthIndex, previousValue) -> {
+                        int remainingMonths = period.duration() - monthIndex + 1;
+                        //                        targetSharePrice = previousValue * Math.pow(1 + x, remainingMonths);
+                        //                        Math.pow(1 + x, remainingMonths) = ;
+                        //                        1 + x = Math.pow(targetSharePrice / previousValue, 1 / remainingMonths);
+                        //                        x = Math.pow(targetSharePrice / previousValue, 1 / remainingMonths) - 1
+                        double mean = Math.pow(targetSharePrice / previousValue, 1d / remainingMonths) - 1;
+                        double perf = mean + this.standardDeviation.percentage() * random.nextGaussian();
+                        double value = previousValue * (1d + perf);
+                        return value;
+                    });
+            performance = period.series(Percent.ofPercentage(0d), (monthIndex, previousValue) ->
+                    new Percent(sharePrices.get(monthIndex) / sharePrices.get(monthIndex - 1))
+            );
 
         }
     }
@@ -317,6 +335,7 @@ class invest {
             double adminFeesInShares;
             if (month % 12 == 0 && month > 0) {
                 adminFeesInShares = conditions.adminFees.of(shares);
+                shares += conditions.reinvestedDividends.of(shares);
             } else {
                 adminFeesInShares = 0d;
             }
