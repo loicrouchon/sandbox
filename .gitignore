@@ -1,5 +1,37 @@
-.classpath
-.settings
+# Build tools
+.gradle/
+build/
+out/
+target/
+pom.xml.versionsBackup
+
+# Eclipse
 .project
-target
+.classpath
+/.settings
+/bin
+
+# IntelliJ
+.idea
+*.ipr
+*.iml
+*.iws
+.fleet/
+
+# NetBeans
+nb-configuration.xml
+
+# Visual Studio Code
+.vscode
+.factorypath
+
+# OSX
+.DS_Store
+
+# Vim
 *.swp
+*.swo
+
+# patch
+*.orig
+*.rej
